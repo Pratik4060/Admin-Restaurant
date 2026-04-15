@@ -1,0 +1,125 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")   
+
+}
+
+enum Role {
+  SUPER_ADMIN
+  ADMIN
+}
+
+enum FoodType {
+  VEG
+  NON_VEG
+}
+
+enum OrderStatus {
+  PENDING
+  PREPARING
+  READY
+  COMPLETED
+  CANCELED
+}
+
+enum DiscountType {
+  PERCENTAGE
+  FLAT
+}
+
+model Admin {
+  id           String   @id @default(uuid())
+  name         String
+  email        String   @unique
+  passwordHash String
+  role         Role     @default(ADMIN)
+  lastLoginAt  DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model Customer {
+  id        String   @id @default(uuid())
+  name      String
+  phone     String   @unique
+  email     String?  @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  orders    Order[]
+}
+
+model Category {
+  id        String   @id @default(uuid())
+  name      String
+  slug      String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  menuItems MenuItem[]
+}
+
+model MenuItem {
+  id          String      @id @default(uuid())
+  name        String
+  description String?
+  price       Decimal     @db.Decimal(10, 2)
+  foodType    FoodType
+  isAvailable Boolean     @default(true)
+  likes       Int         @default(0)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  categoryId  String
+  category    Category    @relation(fields: [categoryId], references: [id])
+  orderItems  OrderItem[]
+
+  @@unique([name, categoryId], name: "name_categoryId")
+}
+
+model Offer {
+  id            String       @id @default(uuid())
+  title         String
+  description   String?
+  imageUrl      String?
+  discountType  DiscountType
+  discountValue Decimal      @db.Decimal(10, 2)
+  promoCode     String?      @unique
+  startAt       DateTime
+  endAt         DateTime
+  isActive      Boolean      @default(true)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+}
+
+model Order {
+  id          String      @id @default(uuid())
+  orderNumber String      @unique
+  tableNumber String
+  status      OrderStatus @default(PENDING)
+  notes       String?
+  totalAmount Decimal     @db.Decimal(10, 2)
+  placedAt    DateTime    @default(now())
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  customerId  String?
+  customer    Customer?   @relation(fields: [customerId], references: [id])
+  items       OrderItem[]
+
+  @@index([status, createdAt])
+}
+
+model OrderItem {
+  id        String   @id @default(uuid())
+  quantity  Int
+  unitPrice Decimal  @db.Decimal(10, 2)
+  lineTotal Decimal  @db.Decimal(10, 2)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  orderId   String
+  menuItemId String
+  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  menuItem  MenuItem @relation(fields: [menuItemId], references: [id])
+}
