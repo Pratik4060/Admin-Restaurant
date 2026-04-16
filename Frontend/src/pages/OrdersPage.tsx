@@ -1,6 +1,6 @@
-﻿import { useMemo, useState } from 'react';
+﻿import { useEffect, useState } from 'react';
 import AdminShell from '../components/layout/AdminShell';
-import { orders } from '../data/mockData';
+import { getOrders, updateOrderStatus, type OrderStatus } from '../lib/api';
 import type { AppRoute } from '../types/ui';
 
 interface OrdersPageProps {
@@ -8,30 +8,70 @@ interface OrdersPageProps {
   onLogout: () => void;
 }
 
-function statusColors(status: string) {
-  if (status === 'Completed') return 'text-green-600 bg-green-100';
-  if (status === 'Ready') return 'text-cyan-600 bg-cyan-100';
+type UiOrder = {
+  id: string;
+  orderNumber: string;
+  customer: string;
+  tableNumber: string;
+  status: OrderStatus;
+  totalAmount: number;
+  createdAt: string;
+  updatedAt: string;
+  items: Array<{ id: string; name: string; lineTotal: number }>;
+};
+
+function statusColors(status: OrderStatus) {
+  if (status === 'COMPLETED') return 'text-green-600 bg-green-100';
+  if (status === 'READY') return 'text-cyan-600 bg-cyan-100';
+  if (status === 'CANCELED') return 'text-rose-600 bg-rose-100';
   return 'text-yellow-700 bg-yellow-100';
+}
+
+function statusLabel(status: OrderStatus) {
+  return status.charAt(0) + status.slice(1).toLowerCase();
 }
 
 export default function OrdersPage({ onNavigate, onLogout }: OrdersPageProps) {
   const [search, setSearch] = useState('');
   const [sortBy, setSortBy] = useState<'latest' | 'status'>('latest');
   const [showModal, setShowModal] = useState(true);
+  const [orders, setOrders] = useState<UiOrder[]>([]);
+  const [error, setError] = useState('');
 
-  const visibleOrders = useMemo(() => {
-    const filtered = orders.filter((order) => {
-      const needle = search.trim().toLowerCase();
-      if (!needle) return true;
-      return order.id.toLowerCase().includes(needle) || order.customer.toLowerCase().includes(needle);
-    });
+  useEffect(() => {
+    const loadOrders = async () => {
+      try {
+        setError('');
+        const data = await getOrders(search);
+        const mapped = data.items.map((order) => ({
+          id: order.id,
+          orderNumber: order.orderNumber,
+          customer: order.customer?.name ?? 'Walk-in',
+          tableNumber: order.tableNumber,
+          status: order.status,
+          totalAmount: order.totalAmount,
+          createdAt: order.createdAt,
+          updatedAt: order.updatedAt,
+          items: order.items.map((item) => ({ id: item.id, name: item.name, lineTotal: item.lineTotal })),
+        }));
+        const sorted = sortBy === 'status' ? [...mapped].sort((a, b) => a.status.localeCompare(b.status)) : mapped;
+        setOrders(sorted);
+      } catch (e) {
+        setError(e instanceof Error ? e.message : 'Failed to load orders');
+      }
+    };
 
-    if (sortBy === 'status') {
-      return [...filtered].sort((a, b) => a.status.localeCompare(b.status));
-    }
-
-    return filtered;
+    loadOrders();
   }, [search, sortBy]);
+
+  const handleUpdateStatus = async (id: string, status: OrderStatus) => {
+    try {
+      await updateOrderStatus(id, status);
+      setOrders((prev) => prev.map((order) => (order.id === id ? { ...order, status } : order)));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to update status');
+    }
+  };
 
   return (
     <AdminShell
@@ -69,58 +109,75 @@ export default function OrdersPage({ onNavigate, onLogout }: OrdersPageProps) {
       </section>
 
       <section className="mt-2.5 grid grid-cols-1 gap-2.5 xl:grid-cols-2">
-        {visibleOrders.map((order) => (
+        {orders.map((order) => (
           <article key={order.id} className="rounded-lg border border-neutral-300 bg-white p-2.5">
             <div className="mb-2 flex items-center justify-between">
-              <strong className="text-[10px]">{order.id}</strong>
-              <span className={`rounded-full px-2 py-0.5 text-[8px] ${statusColors(order.status)}`}>{order.status}</span>
+              <strong className="text-[10px]">{order.orderNumber}</strong>
+              <span className={`rounded-full px-2 py-0.5 text-[8px] ${statusColors(order.status)}`}>{statusLabel(order.status)}</span>
             </div>
 
             <p className="m-0 text-[9px] text-neutral-600">{order.customer}</p>
-            <p className="m-0 text-[9px] text-neutral-600">{order.table}</p>
+            <p className="m-0 text-[9px] text-neutral-600">Table {order.tableNumber}</p>
 
             <div className="mt-2 border-t border-neutral-100 pt-1.5">
               {order.items.map((item) => (
                 <div key={item.name} className="mt-1 flex justify-between text-[9px] text-neutral-600">
                   <span>{item.name}</span>
-                  <span>{item.price}</span>
+                  <span>INR {item.lineTotal.toFixed(2)}</span>
                 </div>
               ))}
             </div>
 
             <div className="mt-2 flex justify-between border-t border-neutral-100 pt-1.5">
               <span className="text-[9px] text-neutral-500">Total</span>
-              <strong className="text-[11px] text-green-500">{order.total}</strong>
+              <strong className="text-[11px] text-green-500">INR {order.totalAmount.toFixed(2)}</strong>
             </div>
 
             <div className="mt-2 flex flex-col gap-0.5 text-[8px] text-neutral-400">
-              <small>Created: {order.createdAt}</small>
-              <small>Updated: {order.updatedAt}</small>
+              <small>Created: {new Date(order.createdAt).toLocaleString()}</small>
+              <small>Updated: {new Date(order.updatedAt).toLocaleString()}</small>
             </div>
 
             <div className="mt-2 grid grid-cols-[1fr_auto] gap-1.5">
-              {order.status === 'Preparing' && (
-                <button type="button" className="h-6 rounded border border-yellow-400 bg-yellow-400 text-[9px] text-white">
+              {order.status === 'PENDING' && (
+                <button
+                  type="button"
+                  onClick={() => handleUpdateStatus(order.id, 'PREPARING')}
+                  className="h-6 rounded border border-yellow-400 bg-yellow-400 text-[9px] text-white"
+                >
                   Start Preparing
                 </button>
               )}
-              {order.status === 'Ready' && (
-                <button type="button" className="h-6 rounded border border-blue-400 bg-blue-400 text-[9px] text-white">
-                  Mark Ready
+              {order.status === 'PREPARING' && (
+                <button
+                  type="button"
+                  onClick={() => handleUpdateStatus(order.id, 'READY')}
+                  className="h-6 rounded border border-blue-400 bg-blue-400 text-[9px] text-white"
+                >
+                  Mark As Ready
                 </button>
               )}
-              {order.status !== 'Preparing' && (
-                <button type="button" className="h-6 rounded border border-green-400 bg-green-400 text-[9px] text-white">
+              {order.status !== 'COMPLETED' && order.status !== 'CANCELED' && (
+                <button
+                  type="button"
+                  onClick={() => handleUpdateStatus(order.id, 'COMPLETED')}
+                  className="h-6 rounded border border-green-400 bg-green-400 text-[9px] text-white"
+                >
                   Complete Order
                 </button>
               )}
-              <button type="button" className="h-6 rounded border border-rose-200 px-3 text-[9px] text-rose-400">
+              <button
+                type="button"
+                onClick={() => handleUpdateStatus(order.id, 'CANCELED')}
+                className="h-6 rounded border border-rose-200 px-3 text-[9px] text-rose-400"
+              >
                 Cancel
               </button>
             </div>
           </article>
         ))}
       </section>
+      {error && <p className="mt-2 rounded border border-rose-200 bg-rose-50 p-2 text-xs text-rose-600">{error}</p>}
 
       {showModal && (
         <div className="fixed inset-0 grid place-items-center bg-neutral-200/60 px-4">

@@ -2,9 +2,8 @@
 import DashboardPage from './pages/DashboardPage';
 import LoginPage from './pages/LoginPage';
 import OrdersPage from './pages/OrdersPage';
+import { AUTH_TOKEN_KEY } from './lib/api';
 import type { AppRoute } from './types/ui';
-
-const AUTH_KEY = 'restaurant-admin-auth';
 
 function resolvePage(pathname: string, search: string, hash: string): Exclude<AppRoute, 'login'> {
   const page = new URLSearchParams(search).get('page')?.toLowerCase();
@@ -25,7 +24,7 @@ export default function App() {
     [],
   );
 
-  const [isAuthenticated, setIsAuthenticated] = useState(() => localStorage.getItem(AUTH_KEY) === '1');
+  const [isAuthenticated, setIsAuthenticated] = useState(() => Boolean(localStorage.getItem(AUTH_TOKEN_KEY)));
   const [activePage, setActivePage] = useState<Exclude<AppRoute, 'login'>>(initialPage);
 
   const handleNavigate = (page: Exclude<AppRoute, 'login'>) => {
@@ -35,14 +34,14 @@ export default function App() {
     window.history.replaceState({}, '', nextUrl.toString());
   };
 
-  const handleLoginSuccess = () => {
-    localStorage.setItem(AUTH_KEY, '1');
+  const handleLoginSuccess = (token: string) => {
+    localStorage.setItem(AUTH_TOKEN_KEY, token);
     setIsAuthenticated(true);
     handleNavigate('dashboard');
   };
 
   const handleLogout = () => {
-    localStorage.removeItem(AUTH_KEY);
+    localStorage.removeItem(AUTH_TOKEN_KEY);
     setIsAuthenticated(false);
     const nextUrl = new URL(window.location.href);
     nextUrl.searchParams.delete('page');

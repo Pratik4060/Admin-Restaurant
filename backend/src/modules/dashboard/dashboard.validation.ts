@@ -4,7 +4,9 @@ export const revenueTrendQuerySchema = z.object({
   params: z.object({}).optional(),
   body: z.object({}).optional(),
   query: z.object({
-    days: z.coerce.number().min(1).max(30).optional(),
+    // Frontend supports weekly/monthly/yearly.
+    // Keep an upper bound to avoid accidental huge loads.
+    days: z.coerce.number().min(1).max(365).optional(),
   }),
 });
 

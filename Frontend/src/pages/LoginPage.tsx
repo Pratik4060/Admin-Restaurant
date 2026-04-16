@@ -1,9 +1,10 @@
 ﻿import { useState } from 'react';
 import type { FormEvent } from 'react';
+import { login } from '../lib/api';
 import { brandAssets } from '../data/mockData';
 
 interface LoginPageProps {
-  onLoginSuccess: () => void;
+  onLoginSuccess: (token: string) => void;
 }
 
 interface LoginForm {
@@ -12,7 +13,7 @@ interface LoginForm {
 }
 
 const defaultForm: LoginForm = {
-  email: 'admin@admin.com',
+  email: 'admin@zhonix.com',
   password: 'admin123',
 };
 
@@ -20,6 +21,7 @@ export default function LoginPage({ onLoginSuccess }: LoginPageProps) {
   const [form, setForm] = useState<LoginForm>(defaultForm);
   const [errors, setErrors] = useState<Partial<LoginForm>>({});
   const [submitError, setSubmitError] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const validate = () => {
     const nextErrors: Partial<LoginForm> = {};
@@ -40,20 +42,21 @@ export default function LoginPage({ onLoginSuccess }: LoginPageProps) {
     return Object.keys(nextErrors).length === 0;
   };
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setSubmitError('');
 
     if (!validate()) return;
 
-    const isValidUser = form.email.trim().toLowerCase() === 'admin@admin.com' && form.password === 'admin123';
-
-    if (!isValidUser) {
-      setSubmitError('Invalid credentials. Use admin@admin.com / admin123');
-      return;
+    try {
+      setIsSubmitting(true);
+      const result = await login(form.email.trim(), form.password);
+      onLoginSuccess(result.token);
+    } catch (error) {
+      setSubmitError(error instanceof Error ? error.message : 'Unable to login');
+    } finally {
+      setIsSubmitting(false);
     }
-
-    onLoginSuccess();
   };
 
   return (
@@ -106,9 +109,10 @@ export default function LoginPage({ onLoginSuccess }: LoginPageProps) {
 
           <button
             type="submit"
+            disabled={isSubmitting}
             className="mt-4 h-9 w-full rounded bg-gradient-to-r from-[#c3a06f] to-[#7f5a27] text-xs font-semibold text-white transition hover:brightness-105"
           >
-            Sign In
+            {isSubmitting ? 'Signing In...' : 'Sign In'}
           </button>
         </form>
       </div>
