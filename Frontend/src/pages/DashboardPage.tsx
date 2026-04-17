@@ -3,9 +3,11 @@ import AdminShell from '../components/layout/AdminShell';
 import {
   getActiveOffers,
   getDashboardSummary,
+  getOrderStatusBreakdown,
   getPopularItems,
   getRevenueTrend,
   type DashboardSummary,
+  type OrderStatusBreakdownItem,
   type RevenueTrendPoint,
   type PopularItem,
 } from '../lib/api';
@@ -106,6 +108,67 @@ function RevenueChart({ points, labels }: { points: RevenueTrendPoint[]; labels:
   );
 }
 
+const STATUS_VIEW: Array<{
+  status: OrderStatusBreakdownItem['status'];
+  label: string;
+  color: string;
+  position: string;
+}> = [
+  { status: 'PREPARING', label: 'Preparing', color: '#7aa7e9', position: 'left-0 top-0' },
+  { status: 'PENDING', label: 'Pending', color: '#f19d95', position: 'right-0 top-0' },
+  { status: 'READY', label: 'Ready', color: '#95e09d', position: 'left-0 bottom-0' },
+  { status: 'COMPLETED', label: 'Completed', color: '#be98eb', position: 'right-0 bottom-0' },
+];
+
+function OrdersByStatusCard({ breakdown }: { breakdown: OrderStatusBreakdownItem[] }) {
+  const byStatus = new Map(breakdown.map((row) => [row.status, row.count]));
+  const slices = STATUS_VIEW.map((s) => ({ ...s, count: byStatus.get(s.status) ?? 0 }));
+  const total = slices.reduce((sum, s) => sum + s.count, 0);
+
+  // Build conic-gradient stops from live counts. When total == 0 we fall back
+  // to four equal slices so the card still shows the reference design.
+  const stops: string[] = [];
+  if (total > 0) {
+    let cursor = 0;
+    slices.forEach((s, idx) => {
+      const next = idx === slices.length - 1 ? 100 : cursor + (s.count / total) * 100;
+      if (next > cursor) {
+        stops.push(`${s.color} ${cursor.toFixed(4)}% ${next.toFixed(4)}%`);
+      }
+      cursor = next;
+    });
+  } else {
+    slices.forEach((s, idx) => {
+      const start = idx * 25;
+      const end = (idx + 1) * 25;
+      stops.push(`${s.color} ${start}% ${end}%`);
+    });
+  }
+
+  return (
+    <article className="rounded-lg border border-neutral-300 bg-white p-3.5">
+      <h3 className="m-0 text-xs font-semibold">Orders by Status</h3>
+
+      <div className="relative mx-auto mt-4 mb-2 h-[210px] w-full max-w-[300px]">
+        <div
+          className="absolute left-1/2 top-1/2 h-36 w-36 -translate-x-1/2 -translate-y-1/2 rounded-full"
+          style={{ background: `conic-gradient(${stops.join(', ')})` }}
+          aria-label="Orders by status"
+        />
+
+        {slices.map((s) => (
+          <span
+            key={s.status}
+            className={`absolute ${s.position} text-[10px] font-medium text-neutral-600`}
+          >
+            {s.label} : {s.count}
+          </span>
+        ))}
+      </div>
+    </article>
+  );
+}
+
 function formatRevenueLabel(isoDate: string) {
   const d = new Date(`${isoDate}T00:00:00`);
   return d.toLocaleString('en-US', { month: 'short', day: 'numeric' });
@@ -141,19 +204,22 @@ export default function DashboardPage({ onNavigate, onLogout }: DashboardPagePro
   const [popularFoodType, setPopularFoodType] = useState<'veg' | 'nonveg' | 'beverages'>('veg');
   const [popularItems, setPopularItemsState] = useState<Array<{ id: string; name: string; likes: number }>>([]);
   const [revenuePeriod, setRevenuePeriod] = useState<'weekly' | 'monthly' | 'yearly'>('weekly');
+  const [orderStatus, setOrderStatus] = useState<OrderStatusBreakdownItem[]>([]);
   const [error, setError] = useState('');
 
   useEffect(() => {
     const loadDashboard = async () => {
       try {
         setError('');
-        const [summaryData, offersData, popularData] = await Promise.all([
+        const [summaryData, offersData, popularData, orderStatusData] = await Promise.all([
           getDashboardSummary(),
           getActiveOffers(),
           // Popular items are fetched again per tab; this is just to avoid empty chart on first paint.
           getPopularItems('veg', 12),
+          getOrderStatusBreakdown(),
         ]);
         setSummary(summaryData);
+        setOrderStatus(orderStatusData);
         setOffers(
           offersData.map((offer) => {
             const mock = mockOffers.find((o) => o.title === offer.title);
@@ -346,35 +412,7 @@ export default function DashboardPage({ onNavigate, onLogout }: DashboardPagePro
           )}
         </article>
 
-        <article className="rounded-lg border border-neutral-300 bg-white p-3.5">
-          <h3 className="m-0 text-xs font-semibold">Orders by Status</h3>
-
-          <div className="relative mx-auto mt-4 mb-2 h-[210px] w-full max-w-[300px]">
-            {/* Pie */}
-            <div
-              className="absolute left-1/2 top-1/2 h-36 w-36 -translate-x-1/2 -translate-y-1/2 rounded-full"
-              style={{
-                background:
-                  'conic-gradient(#7aa7e9 0 25%, #f19d95 25% 50%, #be98eb 50% 75%, #95e09d 75% 100%)',
-              }}
-              aria-label="Orders by status"
-            />
-
-            {/* Corner labels around the pie */}
-            <span className="absolute left-0 top-0 text-[10px] font-medium text-neutral-600">
-              Preparing : 1
-            </span>
-            <span className="absolute right-0 top-0 text-[10px] font-medium text-neutral-600">
-              Pending : 1
-            </span>
-            <span className="absolute bottom-0 left-0 text-[10px] font-medium text-neutral-600">
-              Ready : 1
-            </span>
-            <span className="absolute bottom-0 right-0 text-[10px] font-medium text-neutral-600">
-              Completed : 1
-            </span>
-          </div>
-        </article>
+        <OrdersByStatusCard breakdown={orderStatus} />
       </section>
 
       <section className="mt-3 rounded-lg border border-neutral-300 bg-white p-3.5">
