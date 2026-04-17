@@ -249,7 +249,10 @@ export default function DashboardPage({ onNavigate, onLogout }: DashboardPagePro
           case "Today's Orders":
             return { ...card, value: String(summary.todayOrders) };
           case "Today's Revenue":
-            return { ...card, value: `INR ${summary.todayRevenue.toFixed(0)}` };
+            return {
+              ...card,
+              value: `₹ ${Math.round(summary.todayRevenue).toLocaleString('en-IN')}`,
+            };
           case 'Pending Orders':
             return { ...card, value: String(summary.pendingOrders) };
           case 'Total Customers':
@@ -345,16 +348,31 @@ export default function DashboardPage({ onNavigate, onLogout }: DashboardPagePro
 
         <article className="rounded-lg border border-neutral-300 bg-white p-3.5">
           <h3 className="m-0 text-xs font-semibold">Orders by Status</h3>
-          <div
-            className="mx-auto my-3.5 h-44 w-44 rounded-full"
-            style={{ background: 'conic-gradient(#f19d95 0 25%, #be98eb 25% 50%, #95e09d 50% 75%, #9cbef1 75% 100%)' }}
-            aria-label="Orders by status"
-          />
-          <div className="grid grid-cols-2 gap-2 text-[10px] text-neutral-600">
-            <span>Preparing: 1</span>
-            <span>Pending: 1</span>
-            <span>Ready: 1</span>
-            <span>Completed: 1</span>
+
+          <div className="relative mx-auto mt-4 mb-2 h-[210px] w-full max-w-[300px]">
+            {/* Pie */}
+            <div
+              className="absolute left-1/2 top-1/2 h-36 w-36 -translate-x-1/2 -translate-y-1/2 rounded-full"
+              style={{
+                background:
+                  'conic-gradient(#7aa7e9 0 25%, #f19d95 25% 50%, #be98eb 50% 75%, #95e09d 75% 100%)',
+              }}
+              aria-label="Orders by status"
+            />
+
+            {/* Corner labels around the pie */}
+            <span className="absolute left-0 top-0 text-[10px] font-medium text-neutral-600">
+              Preparing : 1
+            </span>
+            <span className="absolute right-0 top-0 text-[10px] font-medium text-neutral-600">
+              Pending : 1
+            </span>
+            <span className="absolute bottom-0 left-0 text-[10px] font-medium text-neutral-600">
+              Ready : 1
+            </span>
+            <span className="absolute bottom-0 right-0 text-[10px] font-medium text-neutral-600">
+              Completed : 1
+            </span>
           </div>
         </article>
       </section>
