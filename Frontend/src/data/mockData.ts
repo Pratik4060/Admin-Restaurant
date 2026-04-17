@@ -3,11 +3,12 @@ import loginBg from '../assets/LoginImg.svg';
 import dashboardIcon from '../assets/SideBar/DashBoard.svg';
 import ordersIcon from '../assets/SideBar/Orders.svg';
 import menuItemsIcon from '../assets/SideBar/MenuItems.svg';
-import categoriesIcon from '../assets/SideBar/Categories.svg';
 import customersIcon from '../assets/SideBar/Customers.svg';
 import offersIcon from '../assets/SideBar/Offers.svg';
 import billingIcon from '../assets/SideBar/billing.svg';
 import usersIcon from '../assets/SideBar/Users.svg';
+// NOTE: Categories icon import removed — Categories is not part of the
+// reference dashboard sidebar anymore.
 import todaysOrdersIcon from '../assets/DashBoard/TodaysOrder.svg';
 import revenueIcon from '../assets/DashBoard/Revenue.svg';
 import pendingOrdersIcon from '../assets/DashBoard/PendingOders.svg';
@@ -27,9 +28,8 @@ export const sidebarItems: SidebarItem[] = [
   { id: 'dashboard', label: 'Dashboard', icon: dashboardIcon },
   { id: 'orders', label: 'Orders', icon: ordersIcon },
   { id: 'menu-items', label: 'Menu Items', icon: menuItemsIcon },
-  { id: 'categories', label: 'Categories', icon: categoriesIcon },
-  { id: 'customers', label: 'Customers', icon: customersIcon },
   { id: 'offers', label: 'Offers', icon: offersIcon },
+  { id: 'customers', label: 'Customers', icon: customersIcon },
   { id: 'billing', label: 'Billing', icon: billingIcon },
   { id: 'users', label: 'Users', icon: usersIcon },
 ];
@@ -44,7 +44,7 @@ export const statCards: StatCard[] = [
   },
   {
     title: "Today's Revenue",
-    value: 'INR 6000',
+    value: '₹ 6,000',
     note: '+12.5%',
     tone: 'success',
     icon: revenueIcon,
